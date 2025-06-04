@@ -6,7 +6,7 @@ import { useAuth } from './useAuth';
 interface GameProgress {
   id: string;
   total_clicks: number;
-  completed_images: number;
+  current_level: number;
   current_image_url: string | null;
   current_pixels: number[];
 }
@@ -38,9 +38,18 @@ export const useGameProgress = () => {
       }
 
       if (data) {
+        // Преобразуем Json в number[]
+        let currentPixels: number[] = [];
+        if (Array.isArray(data.current_pixels)) {
+          currentPixels = data.current_pixels.filter((pixel): pixel is number => 
+            typeof pixel === 'number'
+          );
+        }
+
         setProgress({
           ...data,
-          current_pixels: Array.isArray(data.current_pixels) ? data.current_pixels as number[] : []
+          current_level: data.completed_images || 1, // Используем completed_images как current_level для совместимости
+          current_pixels: currentPixels
         });
       }
     } catch (error) {
@@ -54,12 +63,16 @@ export const useGameProgress = () => {
     if (!user || !progress) return;
 
     try {
+      // Маппим current_level обратно в completed_images для совместимости с БД
+      const dbUpdates = {
+        ...updates,
+        completed_images: updates.current_level,
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('game_progress')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(dbUpdates)
         .eq('user_id', user.id);
 
       if (error) {
