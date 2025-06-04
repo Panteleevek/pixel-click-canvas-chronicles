@@ -9,7 +9,54 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      game_progress: {
+        Row: {
+          completed_images: number
+          current_image_url: string | null
+          current_pixels: Json | null
+          id: string
+          total_clicks: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_images?: number
+          current_image_url?: string | null
+          current_pixels?: Json | null
+          id?: string
+          total_clicks?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_images?: number
+          current_image_url?: string | null
+          current_pixels?: Json | null
+          id?: string
+          total_clicks?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

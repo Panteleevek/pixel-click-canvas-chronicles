@@ -1,12 +1,41 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useAuth } from '@/hooks/useAuth';
+import { AuthForm } from '@/components/AuthForm';
+import { GameCanvas } from '@/components/GameCanvas';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+  const { user, loading, signOut } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Загрузка...</div>
       </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthForm />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b p-4">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-semibold">Пиксель-Кликер</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-gray-600">Добро пожаловать, {user.email}</span>
+            <Button onClick={signOut} variant="outline">
+              Выйти
+            </Button>
+          </div>
+        </div>
+      </header>
+      
+      <main className="max-w-6xl mx-auto py-8">
+        <GameCanvas />
+      </main>
     </div>
   );
 };
