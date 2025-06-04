@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { Button } from '@/components/ui/button';
@@ -101,7 +100,7 @@ export const GameCanvas = () => {
     
     if (revealedPixels.has(pixelIndex)) return; // Пиксель уже открыт
 
-    // Добавляем новый пиксель
+    // Добавляем ТОЛЬКО ОДИН новый пиксель
     const newRevealedPixels = new Set(revealedPixels);
     newRevealedPixels.add(pixelIndex);
     setRevealedPixels(newRevealedPixels);
