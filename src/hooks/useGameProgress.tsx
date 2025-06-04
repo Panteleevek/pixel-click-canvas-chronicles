@@ -40,7 +40,7 @@ export const useGameProgress = () => {
       if (data) {
         setProgress({
           ...data,
-          current_pixels: Array.isArray(data.current_pixels) ? data.current_pixels : []
+          current_pixels: Array.isArray(data.current_pixels) ? data.current_pixels as number[] : []
         });
       }
     } catch (error) {
