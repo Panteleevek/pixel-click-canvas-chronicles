@@ -14,10 +14,13 @@ export const useGameState = () => {
 
   // Инициализация игры
   useEffect(() => {
+    console.log('Game initialization:', { loading, progress });
     if (!loading && progress) {
       const currentLevel = progress.current_level || 1;
       const pixels = calculateTotalPixels(currentLevel);
       const dimensions = calculateCanvasDimensions(pixels);
+      
+      console.log('Setting up level:', currentLevel, 'pixels:', pixels, 'dimensions:', dimensions);
       
       setTotalPixels(pixels);
       setCanvasWidth(dimensions.width);
@@ -38,6 +41,8 @@ export const useGameState = () => {
   const resetGame = async () => {
     if (!progress) return;
 
+    console.log('Resetting game');
+    
     await updateProgress({
       total_clicks: 0,
       current_level: 1,

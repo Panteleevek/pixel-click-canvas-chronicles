@@ -87,6 +87,8 @@ export const GameCanvas = () => {
     const pixelIndex = y * canvasWidth + x;
     const currentLevel = progress.current_level || 1;
     
+    console.log('Canvas click:', { currentLevel, pixelIndex, totalPixels, revealedCount: revealedPixels.size });
+    
     // Обновляем счетчик кликов при каждом клике
     const newTotalClicks = progress.total_clicks + 1;
     
@@ -121,6 +123,8 @@ export const GameCanvas = () => {
     if (newRevealedPixels.size >= totalPixels) {
       const newLevel = currentLevel + 1;
       
+      console.log('Level completed! Moving to level:', newLevel);
+      
       toast({
         title: 'Уровень завершен!',
         description: `Поздравляем! Вы достигли ${newLevel} уровня!`
@@ -129,6 +133,8 @@ export const GameCanvas = () => {
       // Вычисляем параметры для нового уровня
       const newPixels = calculateTotalPixels(newLevel);
       const newDimensions = calculateCanvasDimensions(newPixels);
+      
+      console.log('New level setup:', { newLevel, newPixels, newDimensions });
       
       // Сначала обновляем состояние компонента
       setTotalPixels(newPixels);
