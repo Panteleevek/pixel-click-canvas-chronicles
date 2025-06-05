@@ -2,10 +2,11 @@
   "name": "vite_react_shadcn_ts",
   "homepage": "https://panteleevek.github.io/pixel-click-canvas-chronicles/",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "build": "vite build",
     "build:dev": "vite build --mode development",
