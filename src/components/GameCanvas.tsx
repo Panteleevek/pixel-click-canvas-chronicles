@@ -6,18 +6,21 @@ import { useToast } from '@/hooks/use-toast';
 
 // Функция для вычисления общего количества пикселей для уровня
 const calculateTotalPixels = (level: number) => {
-  if (level === 1) return 100; // Первый уровень: 100 пикселей
-  
-  let totalPixels = 100;
-  for (let i = 2; i <= level; i++) {
-    if (i % 10 === 0) {
-      // Каждый десятый уровень увеличиваем на 20
-      totalPixels += 20;
-    } else {
-      // Остальные уровни увеличиваем на 10
-      totalPixels += 10;
-    }
+  if (level === 1) return 10; // Первый уровень: 10 пикселей
+  if (level <= 10) {
+    // Уровни 2-10: прогрессия от 12 до 100 пикселей
+    return 10 + (level - 1) * 10;
   }
+  
+  // После 10 уровня: базовые 100 пикселей + по 20 за каждый дополнительный десяток
+  let totalPixels = 100;
+  const additionalLevels = level - 10;
+  const additionalTens = Math.floor(additionalLevels / 10);
+  const remainingLevels = additionalLevels % 10;
+  
+  totalPixels += additionalTens * 20 * 10; // Каждые 10 уровней добавляют по 20*10 пикселей
+  totalPixels += remainingLevels * 20; // Оставшиеся уровни добавляют по 20 пикселей
+  
   return totalPixels;
 };
 
@@ -34,7 +37,7 @@ export const GameCanvas = () => {
   const [revealedPixels, setRevealedPixels] = useState<Set<number>>(new Set());
   const [canvasWidth, setCanvasWidth] = useState(10);
   const [canvasHeight, setCanvasHeight] = useState(10);
-  const [totalPixels, setTotalPixels] = useState(100);
+  const [totalPixels, setTotalPixels] = useState(10);
   const { progress, updateProgress, loading } = useGameProgress();
   const { toast } = useToast();
 
@@ -222,13 +225,7 @@ export const GameCanvas = () => {
     
     setRevealedPixels(newRevealedPixels);
 
-    // Обновляем прогресс в базе данных
-    await updateProgress({
-      total_clicks: newTotalClicks,
-      current_pixels: Array.from(newRevealedPixels)
-    });
-
-    // Проверяем, заполнен ли весь холст (проверяем по totalPixels, а не по actualPixels)
+    // Проверяем, заполнен ли весь холст (проверяем по totalPixels)
     if (newRevealedPixels.size >= totalPixels) {
       const newLevel = currentLevel + 1;
       
@@ -237,22 +234,29 @@ export const GameCanvas = () => {
         description: `Поздравляем! Вы достигли ${newLevel} уровня!`
       });
 
-      // Сохраняем новый уровень и начинаем новый холст
-      await updateProgress({
-        total_clicks: newTotalClicks,
-        current_level: newLevel,
-        current_pixels: []
-      });
-
-      // Начинаем новый уровень
+      // Вычисляем параметры для нового уровня
       const newPixels = calculateTotalPixels(newLevel);
       const newDimensions = calculateCanvasDimensions(newPixels);
       
+      // Сначала обновляем состояние компонента
       setTotalPixels(newPixels);
       setCanvasWidth(newDimensions.width);
       setCanvasHeight(newDimensions.height);
       setRevealedPixels(new Set());
       setCurrentImage(generateMeaningfulImage(newDimensions.width, newDimensions.height, newLevel));
+
+      // Затем сохраняем в базу данных с новыми параметрами
+      await updateProgress({
+        total_clicks: newTotalClicks,
+        current_level: newLevel,
+        current_pixels: []
+      });
+    } else {
+      // Обычное обновление прогресса без смены уровня
+      await updateProgress({
+        total_clicks: newTotalClicks,
+        current_pixels: Array.from(newRevealedPixels)
+      });
     }
   };
 
