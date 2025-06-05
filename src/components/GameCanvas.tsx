@@ -1,138 +1,30 @@
 
-import { useState, useEffect, useRef } from 'react';
-import { useGameProgress } from '@/hooks/useGameProgress';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-// Функция для вычисления общего количества пикселей для уровня
-const calculateTotalPixels = (level: number) => {
-  if (level === 1) return 10; // Первый уровень: 10 пикселей
-  if (level <= 10) {
-    // Уровни 2-10: прогрессия от 12 до 100 пикселей
-    return 10 + (level - 1) * 10;
-  }
-  
-  // После 10 уровня: базовые 100 пикселей + по 20 за каждый дополнительный десяток
-  let totalPixels = 100;
-  const additionalLevels = level - 10;
-  const additionalTens = Math.floor(additionalLevels / 10);
-  const remainingLevels = additionalLevels % 10;
-  
-  totalPixels += additionalTens * 20 * 10; // Каждые 10 уровней добавляют по 20*10 пикселей
-  totalPixels += remainingLevels * 20; // Оставшиеся уровни добавляют по 20 пикселей
-  
-  return totalPixels;
-};
-
-// Функция для вычисления размеров холста на основе количества пикселей
-const calculateCanvasDimensions = (totalPixels: number) => {
-  // Делаем холст примерно квадратным
-  const side = Math.ceil(Math.sqrt(totalPixels));
-  return { width: side, height: Math.ceil(totalPixels / side) };
-};
+import { calculateTotalPixels, calculateCanvasDimensions } from '@/utils/pixelCalculations';
+import { generateMeaningfulImage } from '@/utils/imageGeneration';
+import { useGameState } from '@/hooks/useGameState';
 
 export const GameCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
-  const [revealedPixels, setRevealedPixels] = useState<Set<number>>(new Set());
-  const [canvasWidth, setCanvasWidth] = useState(10);
-  const [canvasHeight, setCanvasHeight] = useState(10);
-  const [totalPixels, setTotalPixels] = useState(10);
-  const { progress, updateProgress, loading } = useGameProgress();
   const { toast } = useToast();
-
-  // Генерация осмысленного изображения
-  const generateMeaningfulImage = (width: number, height: number, level: number): ImageData => {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d')!;
-    
-    const imageData = ctx.createImageData(width, height);
-    const data = imageData.data;
-    
-    // Заполняем фон серым цветом
-    for (let i = 0; i < data.length; i += 4) {
-      data[i] = 200;     // Red
-      data[i + 1] = 200; // Green
-      data[i + 2] = 200; // Blue
-      data[i + 3] = 255; // Alpha
-    }
-    
-    const centerX = Math.floor(width / 2);
-    const centerY = Math.floor(height / 2);
-    const radius = Math.floor(Math.min(width, height) / 3);
-    
-    // Создаем простые геометрические фигуры в зависимости от уровня
-    const shapes = ['circle', 'square', 'triangle', 'heart', 'star'];
-    const shapeType = shapes[(level - 1) % shapes.length];
-    
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const index = (y * width + x) * 4;
-        let isPartOfShape = false;
-        
-        switch (shapeType) {
-          case 'circle':
-            const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-            isPartOfShape = distance <= radius;
-            break;
-          case 'square':
-            isPartOfShape = Math.abs(x - centerX) <= radius && Math.abs(y - centerY) <= radius;
-            break;
-          case 'triangle':
-            isPartOfShape = y >= centerY - radius && 
-              Math.abs(x - centerX) <= (radius * (centerY + radius - y)) / radius;
-            break;
-          case 'heart':
-            const dx = x - centerX;
-            const dy = y - centerY;
-            const equation = Math.pow(dx * dx + dy * dy - radius * radius, 3) - dx * dx * dy * dy * dy;
-            isPartOfShape = equation <= 0 && dy <= radius / 2;
-            break;
-          case 'star':
-            const angle = Math.atan2(y - centerY, x - centerX);
-            const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-            const starRadius = radius * (0.5 + 0.5 * Math.cos(5 * angle));
-            isPartOfShape = dist <= starRadius;
-            break;
-        }
-        
-        if (isPartOfShape) {
-          // Цветная фигура
-          data[index] = 50 + (level * 20) % 200;      // Red
-          data[index + 1] = 100 + (level * 30) % 150; // Green
-          data[index + 2] = 150 + (level * 40) % 100; // Blue
-          data[index + 3] = 255;                      // Alpha
-        }
-      }
-    }
-    
-    return imageData;
-  };
-
-  // Инициализация игры
-  useEffect(() => {
-    if (!loading && progress) {
-      const currentLevel = progress.current_level || 1;
-      const pixels = calculateTotalPixels(currentLevel);
-      const dimensions = calculateCanvasDimensions(pixels);
-      
-      setTotalPixels(pixels);
-      setCanvasWidth(dimensions.width);
-      setCanvasHeight(dimensions.height);
-      
-      const newImage = generateMeaningfulImage(dimensions.width, dimensions.height, currentLevel);
-      setCurrentImage(newImage);
-      
-      // Восстанавливаем прогресс из базы данных
-      if (progress.current_pixels && Array.isArray(progress.current_pixels)) {
-        setRevealedPixels(new Set(progress.current_pixels));
-      } else {
-        setRevealedPixels(new Set());
-      }
-    }
-  }, [loading, progress]);
+  const {
+    currentImage,
+    revealedPixels,
+    canvasWidth,
+    canvasHeight,
+    totalPixels,
+    progress,
+    loading,
+    setCurrentImage,
+    setRevealedPixels,
+    setCanvasWidth,
+    setCanvasHeight,
+    setTotalPixels,
+    updateProgress,
+    resetGame
+  } = useGameState();
 
   useEffect(() => {
     drawCanvas();
@@ -258,30 +150,6 @@ export const GameCanvas = () => {
         current_pixels: Array.from(newRevealedPixels)
       });
     }
-  };
-
-  const resetGame = async () => {
-    if (!progress) return;
-
-    await updateProgress({
-      total_clicks: 0,
-      current_level: 1,
-      current_pixels: []
-    });
-
-    const newPixels = calculateTotalPixels(1);
-    const newDimensions = calculateCanvasDimensions(newPixels);
-    
-    setTotalPixels(newPixels);
-    setCanvasWidth(newDimensions.width);
-    setCanvasHeight(newDimensions.height);
-    setRevealedPixels(new Set());
-    setCurrentImage(generateMeaningfulImage(newDimensions.width, newDimensions.height, 1));
-
-    toast({
-      title: 'Игра сброшена',
-      description: 'Прогресс обнулен, начинаем с первого уровня!'
-    });
   };
 
   if (loading) {
