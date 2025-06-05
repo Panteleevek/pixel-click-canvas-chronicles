@@ -15,7 +15,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/pixel-click-canvas-chronicles/ " element={<Index />} />
+          <Route path="/pixel-click-canvas-chronicles/" element={<Index />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
