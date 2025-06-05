@@ -4,30 +4,48 @@ import { useGameProgress } from '@/hooks/useGameProgress';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-const BASE_SIZE = 10; // Базовый размер для первого уровня
-const SIZE_INCREMENT = 50; // Увеличение размера на каждый уровень
+// Функция для вычисления общего количества пикселей для уровня
+const calculateTotalPixels = (level: number) => {
+  if (level === 1) return 100; // Первый уровень: 100 пикселей
+  
+  let totalPixels = 100;
+  for (let i = 2; i <= level; i++) {
+    if (i % 10 === 0) {
+      // Каждый десятый уровень увеличиваем на 20
+      totalPixels += 20;
+    } else {
+      // Остальные уровни увеличиваем на 10
+      totalPixels += 10;
+    }
+  }
+  return totalPixels;
+};
+
+// Функция для вычисления размеров холста на основе количества пикселей
+const calculateCanvasDimensions = (totalPixels: number) => {
+  // Делаем холст примерно квадратным
+  const side = Math.ceil(Math.sqrt(totalPixels));
+  return { width: side, height: Math.ceil(totalPixels / side) };
+};
 
 export const GameCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
   const [revealedPixels, setRevealedPixels] = useState<Set<number>>(new Set());
-  const [canvasSize, setCanvasSize] = useState(BASE_SIZE);
+  const [canvasWidth, setCanvasWidth] = useState(10);
+  const [canvasHeight, setCanvasHeight] = useState(10);
+  const [totalPixels, setTotalPixels] = useState(100);
   const { progress, updateProgress, loading } = useGameProgress();
   const { toast } = useToast();
 
-  // Вычисляем размер холста на основе уровня
-  const calculateCanvasSize = (level: number) => {
-    return BASE_SIZE + (level - 1) * SIZE_INCREMENT;
-  };
-
-  // Генерация простого изображения (например, круг или квадрат)
-  const generateMeaningfulImage = (size: number): ImageData => {
+  // Генерация осмысленного изображения
+  const generateMeaningfulImage = (width: number, height: number, level: number): ImageData => {
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d')!;
     
-    const imageData = ctx.createImageData(size, size);
+    const imageData = ctx.createImageData(width, height);
     const data = imageData.data;
     
     // Заполняем фон серым цветом
@@ -38,18 +56,17 @@ export const GameCanvas = () => {
       data[i + 3] = 255; // Alpha
     }
     
-    const centerX = Math.floor(size / 2);
-    const centerY = Math.floor(size / 2);
-    const radius = Math.floor(size / 3);
+    const centerX = Math.floor(width / 2);
+    const centerY = Math.floor(height / 2);
+    const radius = Math.floor(Math.min(width, height) / 3);
     
     // Создаем простые геометрические фигуры в зависимости от уровня
-    const level = progress?.current_level || 1;
     const shapes = ['circle', 'square', 'triangle', 'heart', 'star'];
     const shapeType = shapes[(level - 1) % shapes.length];
     
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const index = (y * size + x) * 4;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = (y * width + x) * 4;
         let isPartOfShape = false;
         
         switch (shapeType) {
@@ -95,43 +112,49 @@ export const GameCanvas = () => {
   useEffect(() => {
     if (!loading && progress) {
       const currentLevel = progress.current_level || 1;
-      const size = calculateCanvasSize(currentLevel);
-      setCanvasSize(size);
+      const pixels = calculateTotalPixels(currentLevel);
+      const dimensions = calculateCanvasDimensions(pixels);
       
-      const newImage = generateMeaningfulImage(size);
+      setTotalPixels(pixels);
+      setCanvasWidth(dimensions.width);
+      setCanvasHeight(dimensions.height);
+      
+      const newImage = generateMeaningfulImage(dimensions.width, dimensions.height, currentLevel);
       setCurrentImage(newImage);
       
       // Восстанавливаем прогресс из базы данных
       if (progress.current_pixels && Array.isArray(progress.current_pixels)) {
         setRevealedPixels(new Set(progress.current_pixels));
+      } else {
+        setRevealedPixels(new Set());
       }
     }
   }, [loading, progress]);
 
   useEffect(() => {
     drawCanvas();
-  }, [currentImage, revealedPixels, canvasSize]);
+  }, [currentImage, revealedPixels, canvasWidth, canvasHeight]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas || !currentImage) return;
 
     const ctx = canvas.getContext('2d')!;
-    canvas.width = canvasSize;
-    canvas.height = canvasSize;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     
     // Очищаем холст (делаем серым для неоткрытых пикселей)
     ctx.fillStyle = '#808080';
-    ctx.fillRect(0, 0, canvasSize, canvasSize);
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
     // Рисуем открытые пиксели
-    const imageData = ctx.createImageData(canvasSize, canvasSize);
+    const imageData = ctx.createImageData(canvasWidth, canvasHeight);
     const sourceData = currentImage.data;
     const destData = imageData.data;
     
-    const totalPixels = canvasSize * canvasSize;
+    const actualPixels = canvasWidth * canvasHeight;
     
-    for (let i = 0; i < totalPixels; i++) {
+    for (let i = 0; i < actualPixels; i++) {
       const dataIndex = i * 4;
       if (revealedPixels.has(i)) {
         // Показываем оригинальный цвет пикселя
@@ -164,24 +187,39 @@ export const GameCanvas = () => {
     const x = Math.floor((event.clientX - rect.left) * scaleX);
     const y = Math.floor((event.clientY - rect.top) * scaleY);
     
-    if (x < 0 || x >= canvasSize || y < 0 || y >= canvasSize) return;
+    if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) return;
 
-    const pixelIndex = y * canvasSize + x;
+    const pixelIndex = y * canvasWidth + x;
+    const currentLevel = progress.current_level || 1;
     
     // Обновляем счетчик кликов при каждом клике
     const newTotalClicks = progress.total_clicks + 1;
     
-    if (revealedPixels.has(pixelIndex)) {
-      // Пиксель уже открыт, только увеличиваем счетчик кликов
-      await updateProgress({
-        total_clicks: newTotalClicks
-      });
-      return;
-    }
-
-    // Открываем новый пиксель
     const newRevealedPixels = new Set(revealedPixels);
-    newRevealedPixels.add(pixelIndex);
+    
+    // Открываем пиксель на месте курсора (если еще не открыт)
+    if (!newRevealedPixels.has(pixelIndex)) {
+      newRevealedPixels.add(pixelIndex);
+    }
+    
+    // Начиная со второго уровня, открываем дополнительный случайный пиксель
+    if (currentLevel >= 2) {
+      const actualPixels = canvasWidth * canvasHeight;
+      const unopenedPixels = [];
+      
+      for (let i = 0; i < actualPixels; i++) {
+        if (!newRevealedPixels.has(i)) {
+          unopenedPixels.push(i);
+        }
+      }
+      
+      if (unopenedPixels.length > 0) {
+        const randomIndex = Math.floor(Math.random() * unopenedPixels.length);
+        const randomPixel = unopenedPixels[randomIndex];
+        newRevealedPixels.add(randomPixel);
+      }
+    }
+    
     setRevealedPixels(newRevealedPixels);
 
     // Обновляем прогресс в базе данных
@@ -190,10 +228,9 @@ export const GameCanvas = () => {
       current_pixels: Array.from(newRevealedPixels)
     });
 
-    // Проверяем, заполнен ли весь холст
-    const totalPixels = canvasSize * canvasSize;
+    // Проверяем, заполнен ли весь холст (проверяем по totalPixels, а не по actualPixels)
     if (newRevealedPixels.size >= totalPixels) {
-      const newLevel = progress.current_level + 1;
+      const newLevel = currentLevel + 1;
       
       toast({
         title: 'Уровень завершен!',
@@ -208,10 +245,14 @@ export const GameCanvas = () => {
       });
 
       // Начинаем новый уровень
-      const newSize = calculateCanvasSize(newLevel);
-      setCanvasSize(newSize);
+      const newPixels = calculateTotalPixels(newLevel);
+      const newDimensions = calculateCanvasDimensions(newPixels);
+      
+      setTotalPixels(newPixels);
+      setCanvasWidth(newDimensions.width);
+      setCanvasHeight(newDimensions.height);
       setRevealedPixels(new Set());
-      setCurrentImage(generateMeaningfulImage(newSize));
+      setCurrentImage(generateMeaningfulImage(newDimensions.width, newDimensions.height, newLevel));
     }
   };
 
@@ -224,10 +265,14 @@ export const GameCanvas = () => {
       current_pixels: []
     });
 
-    const newSize = calculateCanvasSize(1);
-    setCanvasSize(newSize);
+    const newPixels = calculateTotalPixels(1);
+    const newDimensions = calculateCanvasDimensions(newPixels);
+    
+    setTotalPixels(newPixels);
+    setCanvasWidth(newDimensions.width);
+    setCanvasHeight(newDimensions.height);
     setRevealedPixels(new Set());
-    setCurrentImage(generateMeaningfulImage(newSize));
+    setCurrentImage(generateMeaningfulImage(newDimensions.width, newDimensions.height, 1));
 
     toast({
       title: 'Игра сброшена',
@@ -239,7 +284,6 @@ export const GameCanvas = () => {
     return <div className="text-center">Загрузка...</div>;
   }
 
-  const totalPixels = canvasSize * canvasSize;
   const currentLevel = progress?.current_level || 1;
 
   return (
@@ -254,14 +298,19 @@ export const GameCanvas = () => {
           Открыто пикселей: {revealedPixels.size} / {totalPixels}
         </div>
         <div className="text-xs text-gray-500">
-          Размер холста: {canvasSize}×{canvasSize} пикселей
+          Размер холста: {canvasWidth}×{canvasHeight} пикселей
         </div>
+        {currentLevel >= 2 && (
+          <div className="text-xs text-blue-500">
+            На этом уровне каждый клик открывает 2 пикселя!
+          </div>
+        )}
       </div>
       
       <canvas
         ref={canvasRef}
-        width={canvasSize}
-        height={canvasSize}
+        width={canvasWidth}
+        height={canvasHeight}
         onClick={handleCanvasClick}
         className="border-2 border-gray-300 cursor-crosshair"
         style={{ 
